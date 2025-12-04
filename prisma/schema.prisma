@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PICKED
+  DELIVERED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  cart          Cart?
+  orders        Order[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  icon        String?
+  products    Product[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("categories")
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  title         String
+  slug          String      @unique
+  description   String?
+  price         Float
+  discountPrice Float?      @map("discount_price")
+  stockStatus   StockStatus @default(IN_STOCK) @map("stock_status")
+  thumbnail     String
+  images        String[]
+  categoryId    String      @map("category_id")
+  category      Category    @relation(fields: [categoryId], references: [id])
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  isFlashSale   Boolean     @default(false) @map("is_flash_sale")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isFlashSale])
+  @@map("products")
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  user        User          @relation(fields: [userId], references: [id])
+  items       OrderItem[]
+  total       Float
+  status      OrderStatus   @default(PENDING)
+  tracking    OrderTracking[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+
+  @@map("order_items")
+}
+
+model OrderTracking {
+  id        String      @id @default(uuid())
+  orderId   String      @map("order_id")
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  riderId   String?     @map("rider_id")
+  gpsLat    Float?      @map("gps_lat")
+  gpsLng    Float?      @map("gps_lng")
+  status    OrderStatus
+  timestamp DateTime    @default(now())
+
+  @@index([orderId])
+  @@map("order_tracking")
+}
